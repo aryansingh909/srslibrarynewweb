@@ -170,7 +170,7 @@ export default function About() {
           <div className="rounded-2xl overflow-hidden shadow-glow border-4 border-white/20">
             <iframe
               title="SRS Digital Library Location"
-              src="https://www.google.com/maps?q=Barsethi+Jaunpur+Uttar+Pradesh&output=embed"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3598.665473756508!2d82.48075357524816!3d25.58279407746474!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x399019007038cfe9%3A0x74a143c5f33ac72b!2sSRS%20Digital%20Library!5e0!3m2!1sen!2sin!4v1783937225107!5m2!1sen!2sin"
               width="100%"
               height="360"
               loading="lazy"
