@@ -478,7 +478,7 @@ export default function Book() {
                 <div className="mt-5 p-4 rounded-xl bg-amber-50 border border-amber-200 flex gap-3">
                   <AlertCircle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
                   <p className="text-sm text-ink-muted">
-                    Seat and locker will be assigned by library staff after registration. You will receive a confirmation call within a few hours.
+                    Seat will be assigned by us and after registration You will be able to Sign in to your Dashboard.
                   </p>
                 </div>
                 <div className="flex justify-between mt-6">
