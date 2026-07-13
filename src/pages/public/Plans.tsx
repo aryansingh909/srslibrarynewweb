@@ -120,7 +120,7 @@ export default function Plans() {
                     </span>
                   )}
                   <ul className="mt-6 space-y-2.5">
-                    {['Air Conditioned', 'High-Speed WiFi', 'CCTV Security', 'Parking Available', 'Clean Washroom', activeShift === 'Full Day' ? '24/7 Access' : `${activeShift} Shift Access`].map((f) => (
+                    {['Air Conditioned', 'High-Speed WiFi', 'CCTV Security', 'Parking Available', 'Clean Washroom', activeShift === 'Full Day' ? 'Full Day Shift Access' : `${activeShift} Shift Access`].map((f) => (
                       <li key={f} className="flex items-center gap-2 text-sm text-ink">
                         <Check className="w-4 h-4 text-success" /> {f}
                       </li>
