@@ -73,9 +73,9 @@ export default function Footer() {
                 <span className="text-slate-400">{settings?.library_address || 'Hasiya, Barsethi, Jaunpur, Uttar Pradesh'}</span>
               </li>
               <li>
-                <a href={`mailto:${settings?.library_email || 'srsdigitalibrary@gmail.com'}`} className="flex items-center gap-3 text-slate-400 hover:text-primary-300">
+                <a href={`mailto:${settings?.library_email || 'krishnakumarsingh909@gmail.com'}`} className="flex items-center gap-3 text-slate-400 hover:text-primary-300">
                   <Mail className="w-4 h-4 text-primary-300" />
-                  {settings?.library_email || 'srsdigitalibrary@gmail.com'}
+                  {settings?.library_email || 'krishnakumarsingh909@gmail.com'}
                 </a>
               </li>
               <li className="flex items-center gap-3">

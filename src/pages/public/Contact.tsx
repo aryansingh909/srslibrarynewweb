@@ -71,7 +71,14 @@ export default function Contact() {
                 </div>
                 <div>
                   <h3 className="font-display font-semibold text-ink">Call Us</h3>
-                  <p className="text-sm text-ink-muted mt-1">Call us for current timings and enquiries.</p>
+                  <a href="tel:9415660616" className="text-[#0B3D91] hover:text-[#F97316] font-small text-lg transition-colors">
+                      +91 94156 60616
+                    </a>
+                  <br />
+                  <a href="tel:9415660616" className="text-[#0B3D91] hover:text-[#F97316] font-small text-lg transition-colors">
+                      +91 9730469473
+                    </a>
+                    {/* <p className="text-sm text-ink-muted mt-1">Call us for current timings and enquiries.</p> */}
                 </div>
               </div>
             </motion.div>
@@ -83,8 +90,8 @@ export default function Contact() {
                 </div>
                 <div>
                   <h3 className="font-display font-semibold text-ink">Email</h3>
-                  <a href={`mailto:${settings?.library_email || 'srsdigitalibrary@gmail.com'}`} className="text-sm text-primary-700 hover:underline mt-1 block">
-                    {settings?.library_email || 'srsdigitalibrary@gmail.com'}
+                  <a href={`mailto:${settings?.library_email || 'krishnakumarsingh909@gmail.com'}`} className="text-sm text-primary-700 hover:underline mt-1 block">
+                    {settings?.library_email || 'krishnakumarsingh909@gmail.com'}
                   </a>
                 </div>
               </div>
