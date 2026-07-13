@@ -22,9 +22,10 @@ import AdminFees from './pages/admin/Fees';
 import AdminAnnouncements from './pages/admin/Announcements';
 import AdminPlans from './pages/admin/Plans';
 import AdminGallery from './pages/admin/Gallery';
+import AdminInquiries from './pages/admin/Inquiries';
 import AdminSettings from './pages/admin/Settings';
 import AdminSeats from './pages/admin/Seats';
-import ScrollToTop from './components/ScrollToTop';
+import ScrollToTop from './components/ScrollToTop'
 
 export default function App() {
   return (
@@ -63,6 +64,7 @@ export default function App() {
               <Route path="members" element={<AdminMembers />} />
               <Route path="bookings" element={<AdminBookings />} />
               <Route path="fees" element={<AdminFees />} />
+              <Route path="inquiries" element={<AdminInquiries />} />
               <Route path="announcements" element={<AdminAnnouncements />} />
               <Route path="plans" element={<AdminPlans />} />
               <Route path="gallery" element={<AdminGallery />} />

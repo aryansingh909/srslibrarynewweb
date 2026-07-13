@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, useNavigate, Navigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, CalendarCheck, Wallet, Megaphone, ClipboardList,
-  Image, Settings, LogOut, Menu, X, ChevronLeft, ChevronRight, Armchair,
+  Image, Settings, LogOut, Menu, X, ChevronLeft, ChevronRight, Armchair,  MessageSquare,
 } from 'lucide-react';
 import { useAdmin } from '../../contexts/AdminContext';
 
@@ -11,6 +11,7 @@ const nav = [
   { to: '/admin/members', label: 'Members', icon: Users },
   { to: '/admin/bookings', label: 'Bookings', icon: CalendarCheck },
   { to: '/admin/fees', label: 'Fee Tracking', icon: Wallet },
+  { to: '/admin/inquiries', label: 'Enquiries', icon: MessageSquare },
   { to: '/admin/announcements', label: 'Announcements', icon: Megaphone },
   { to: '/admin/plans', label: 'Plans & Pricing', icon: ClipboardList },
   { to: '/admin/seats', label: 'Seat Management', icon: Armchair },
