@@ -65,8 +65,8 @@ export default function Seats() {
     }));
   }, [members]);
 
-  const isFullyOccupied = (s: SeatOccupancy) => 'Full Day' in s.bookings;
-  const isPartiallyOccupied = (s: SeatOccupancy) => !isFullyOccupied(s) && Object.keys(s.bookings).length > 0;
+  const hasFullDay = (s: SeatOccupancy) => 'Full Day' in s.bookings;
+  const isPartiallyOccupied = (s: SeatOccupancy) => !hasFullDay(s) && Object.keys(s.bookings).length > 0;
   const isAvailable = (s: SeatOccupancy) => Object.keys(s.bookings).length === 0;
 
   const filteredSeats = useMemo(() => {
@@ -79,7 +79,7 @@ export default function Seats() {
     total: TOTAL_SEATS,
     occupied: seats.filter((s) => !isAvailable(s)).length,
     available: seats.filter(isAvailable).length,
-    fullDay: seats.filter(isFullyOccupied).length,
+    fullDay: seats.filter(hasFullDay).length,
   }), [seats]);
 
   const handleShiftClick = (seat: SeatOccupancy, shift: string) => {
@@ -101,7 +101,7 @@ export default function Seats() {
   };
 
   const statusDot = (s: SeatOccupancy) => {
-    if (isFullyOccupied(s)) return 'bg-red-500';
+    if (hasFullDay(s)) return 'bg-red-500';
     if (isPartiallyOccupied(s)) return 'bg-amber-400';
     return 'bg-emerald-400';
   };
@@ -165,7 +165,7 @@ export default function Seats() {
               key={seat.seatNumber}
               seat={seat}
               statusDot={statusDot(seat)}
-              isFullyOccupied={isFullyOccupied(seat)}
+              hasFullDay={hasFullDay(seat)}
               onShiftClick={(shift) => handleShiftClick(seat, shift)}
             />
           ))}
@@ -209,21 +209,32 @@ export default function Seats() {
 
 /* ── Seat Card ─────────────────────────────────────────── */
 function SeatCard({
-  seat, statusDot, isFullyOccupied, onShiftClick,
+  seat, statusDot, onShiftClick,
 }: {
   seat: SeatOccupancy;
   statusDot: string;
-  isFullyOccupied: boolean;
   onShiftClick: (shift: string) => void;
 }) {
-  const anyPartial = !isFullyOccupied && Object.keys(seat.bookings).length > 0;
+  const hasMorning = !!seat.bookings['Morning'];
+  const hasEvening = !!seat.bookings['Evening'];
+  // const hasNight = !!seat.bookings['Night'];
+  const fullDayBooked = !!seat.bookings['Full Day'];
 
-  // Which shifts to show: if full day occupied → only "Full Day"; if partial → show partials only; if empty → all
-  const shiftsToShow: string[] = isFullyOccupied
-    ? ['Full Day']
-    : anyPartial
-    ? PARTIAL_SHIFTS.slice()
-    : ALL_SHIFTS.slice();
+let shiftsToShow: string[] = [];
+
+// Morning & Evening are hidden only if Full Day exists
+if (!fullDayBooked) {
+  shiftsToShow.push('Morning');
+  shiftsToShow.push('Evening');
+}
+
+// Night is ALWAYS shown
+shiftsToShow.push('Night');
+
+// Full Day is hidden only if Morning or Evening exists
+if (!hasMorning && !hasEvening) {
+  shiftsToShow.push('Full Day');
+}
 
   return (
     <div className="card p-3 hover:shadow-md transition-shadow">
@@ -424,20 +435,39 @@ function ChangeSeatModal({
       (m) => m.id !== member.id && m.seat_number === String(seat),
     );
 
-    const occupiedShifts = new Set(others.map((m) => m.current_shift).filter(Boolean));
+   const occupiedShifts = new Set(
+  others.map((m) => m.current_shift).filter(Boolean)
+);
 
-    if (shift === 'Full Day' && occupiedShifts.size > 0) {
-      toast.error(`Seat ${seat} already has partial shift(s) booked. Cannot assign Full Day.`);
-      return;
-    }
-    if (shift !== 'Full Day' && occupiedShifts.has('Full Day')) {
-      toast.error(`Seat ${seat} is already booked as Full Day. Cannot assign a partial shift.`);
-      return;
-    }
-    if (occupiedShifts.has(shift)) {
-      toast.error(`${shift} shift on Seat ${seat} is already occupied.`);
-      return;
-    }
+// Same shift cannot be booked twice
+if (occupiedShifts.has(shift)) {
+  toast.error(`${shift} shift on Seat ${seat} is already occupied.`);
+  return;
+}
+
+// Full Day conflicts ONLY with Morning and Evening
+if (
+  shift === 'Full Day' &&
+  (occupiedShifts.has('Morning') || occupiedShifts.has('Evening'))
+) {
+  toast.error(
+    `Seat ${seat} already has Morning or Evening booked. Cannot assign Full Day.`
+  );
+  return;
+}
+
+// Morning/Evening conflict with Full Day
+if (
+  (shift === 'Morning' || shift === 'Evening') &&
+  occupiedShifts.has('Full Day')
+) {
+  toast.error(
+    `Seat ${seat} already has Full Day booked. Cannot assign ${shift}.`
+  );
+  return;
+}
+
+// Night is independent, so no extra checks are needed.
 
     setSaving(true);
     const { error } = await supabase

@@ -14,7 +14,7 @@ const shiftOptions = [
   { key: 'Morning', icon: Sunrise, time: '6AM – 2PM' },
   { key: 'Evening', icon: Sunset, time: '2PM – 10PM' },
   { key: 'Night', icon: Moon, time: '10PM – 6AM' },
-  { key: 'Full Day', icon: Sun, time: '24 Hours' },
+  { key: 'Full Day', icon: Sun, time: '12 Hours' },
 ];
 
 const idTypes = ['Aadhaar', 'Student ID', 'PAN', 'Driving License'];
@@ -231,13 +231,13 @@ export default function Book() {
             <CheckCircle2 className="w-9 h-9 text-success" />
           </div>
           <h2 className="font-display font-bold text-2xl text-ink">Booking Submitted!</h2>
-          <p className="text-ink-muted mt-2">Your booking is submitted for confirmation. Our staff will contact you at {success.phone}.</p>
+          <p className="text-ink-muted mt-2">Your booking is submitted for confirmation. We will contact you at {success.phone}.</p>
           <div className="mt-6 p-4 rounded-xl bg-primary-50 border border-primary-100">
             <p className="text-sm text-ink-muted">Your Booking ID</p>
             <p className="font-mono font-bold text-2xl text-primary-800 mt-1">{success.id}</p>
           </div>
           <p className="text-sm text-ink-muted mt-5">
-            Seat and locker will be assigned by library staff after registration. You will receive a confirmation call within a few hours.
+            Seat will be assigned by us and after registration you will be able to Sign in.
           </p>
           <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
             <Link to="/" className="btn-secondary">Back to Home</Link>
