@@ -1,11 +1,12 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import type { Admin } from '../lib/supabase';
+import { supabase, type Admin, type AdminPermissionKey } from '../lib/supabase';
 
 type AdminContextType = {
   admin: Admin | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<{ error: string | null }>;
   logout: () => void;
+  hasPermission: (key: AdminPermissionKey) => boolean;
 };
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -39,8 +40,16 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       if (!res.ok) {
         return { error: data.error || 'Login failed' };
       }
-      setAdmin(data.admin);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data.admin));
+      const adminData = data.admin as Admin;
+      // Fetch full row (includes permissions + created_at) since edge fn may return minimal fields
+      const { data: row } = await supabase
+        .from('admins')
+        .select('id, name, email, role, permissions, created_at')
+        .eq('id', adminData.id)
+        .maybeSingle();
+      const enriched: Admin = row ?? adminData;
+      setAdmin(enriched);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
       return { error: null };
     } catch (err) {
       return { error: (err as Error).message };
@@ -54,8 +63,14 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_KEY);
   };
 
+  const hasPermission = (key: AdminPermissionKey): boolean => {
+    if (!admin) return false;
+    if (admin.role === 'superadmin') return true;
+    return admin.permissions?.[key] === true;
+  };
+
   return (
-    <AdminContext.Provider value={{ admin, loading, login, logout }}>
+    <AdminContext.Provider value={{ admin, loading, login, logout, hasPermission }}>
       {children}
     </AdminContext.Provider>
   );

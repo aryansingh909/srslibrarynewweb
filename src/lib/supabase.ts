@@ -134,9 +134,28 @@ export type Inquiry = {
   created_at: string;
 };
 
+export type AdminPermissionKey =
+  | 'dashboard' | 'members' | 'bookings' | 'fees' | 'inquiries'
+  | 'announcements' | 'plans' | 'seats' | 'gallery' | 'settings';
+
+export const ALL_ADMIN_PERMISSIONS: AdminPermissionKey[] = [
+  'dashboard', 'members', 'bookings', 'fees', 'inquiries',
+  'announcements', 'plans', 'seats', 'gallery', 'settings',
+];
+
+export const PERMISSION_LABELS: Record<AdminPermissionKey, string> = {
+  dashboard: 'Dashboard', members: 'Members', bookings: 'Bookings',
+  fees: 'Fee Tracking', inquiries: 'Enquiries', announcements: 'Announcements',
+  plans: 'Plans & Pricing', seats: 'Seat Management', gallery: 'Gallery', settings: 'Settings',
+};
+
+export type AdminPermissions = Partial<Record<AdminPermissionKey, boolean>>;
+
 export type Admin = {
   id: string;
   name: string;
   email: string;
   role: 'superadmin' | 'staff';
+  permissions?: AdminPermissions;
+  created_at?: string;
 };

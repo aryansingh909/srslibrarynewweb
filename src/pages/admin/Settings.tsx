@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Save, Phone, Mail, MapPin, Armchair, Instagram, Facebook, Youtube, MessageCircle, Settings as SettingsIcon, Users, Lock } from 'lucide-react';
-import { supabase, type SiteSettings } from '../../lib/supabase';
+import {
+  Save, Phone, Mail, MapPin, Armchair, Instagram, Facebook, Youtube,
+  MessageCircle, Settings as SettingsIcon, Users, Lock, Plus, Trash2,
+  ShieldCheck, ShieldAlert, X, Eye, EyeOff,
+} from 'lucide-react';
+import {
+  supabase, type SiteSettings, type Admin,
+  type AdminPermissionKey, type AdminPermissions,
+  ALL_ADMIN_PERMISSIONS, PERMISSION_LABELS,
+} from '../../lib/supabase';
+import { useAdmin } from '../../contexts/AdminContext';
 
 type Tab = 'general' | 'social' | 'admins';
 
@@ -181,25 +190,283 @@ export default function AdminSettings() {
       )}
 
       {tab === 'admins' && (
-        <div className="space-y-6">
-          <div className="card p-6 max-w-3xl">
+        <div className="space-y-6 max-w-3xl">
+          <div className="card p-6">
             <h3 className="font-display font-semibold text-lg text-ink mb-5">Change Your Password</h3>
             <ChangePasswordForm />
           </div>
-          <div className="card p-6 max-w-3xl">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-display font-semibold text-lg text-ink">Admin Accounts</h3>
-              <button className="btn-primary"><Users className="w-4 h-4" /> Add New Admin</button>
-            </div>
-            <p className="text-sm text-ink-muted">
-              Admin accounts are managed securely. The default super admin is <span className="font-mono font-semibold text-ink">admin@pathshaalalibrary.com</span>. To add more admin accounts or change roles, contact your database administrator.
-            </p>
-          </div>
+          <AdminManagement />
         </div>
       )}
     </div>
   );
 }
+
+// ─── Admin Management ────────────────────────────────────────────────────────
+
+function AdminManagement() {
+  const { admin: currentAdmin } = useAdmin();
+  const isSuperAdmin = currentAdmin?.role === 'superadmin';
+
+  const [admins, setAdmins] = useState<Admin[]>([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [permTarget, setPermTarget] = useState<Admin | null>(null);
+
+  const load = async () => {
+    setLoadingList(true);
+    const { data, error } = await supabase
+      .from('admins')
+      .select('id, name, email, role, permissions, created_at')
+      .order('created_at', { ascending: true });
+    if (error) {
+      toast.error('Failed to load admins: ' + error.message);
+    } else {
+      setAdmins((data ?? []) as Admin[]);
+    }
+    setLoadingList(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const deleteAdmin = async (a: Admin) => {
+    if (!window.confirm(`Delete admin "${a.name}"? This cannot be undone.`)) return;
+    const { error } = await supabase.rpc('delete_admin', { target_id: a.id });
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${a.name} removed`);
+    load();
+  };
+
+  return (
+    <div className="card p-6">
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="font-display font-semibold text-lg text-ink">Admin Accounts</h3>
+        {isSuperAdmin && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="btn-primary"
+          >
+            <Plus className="w-4 h-4" /> Add Admin
+          </button>
+        )}
+      </div>
+
+      {loadingList ? (
+        <div className="space-y-3">
+          {[1, 2].map((i) => <div key={i} className="skeleton h-14 rounded-lg" />)}
+        </div>
+      ) : admins.length === 0 ? (
+        <p className="text-sm text-ink-muted py-4 text-center">No admin accounts found.</p>
+      ) : (
+        <div className="divide-y divide-line">
+          {admins.map((a) => (
+            <div key={a.id} className="flex items-center gap-3 py-3">
+              <div className={`p-2 rounded-lg ${a.role === 'superadmin' ? 'bg-amber-50' : 'bg-sky-50'}`}>
+                {a.role === 'superadmin'
+                  ? <ShieldCheck className="w-5 h-5 text-amber-600" />
+                  : <ShieldAlert className="w-5 h-5 text-sky-600" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-ink text-sm truncate">{a.name}</p>
+                <p className="text-ink-muted text-xs truncate">{a.email}</p>
+              </div>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                a.role === 'superadmin' ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-sky-700'
+              }`}>
+                {a.role === 'superadmin' ? 'Super Admin' : 'Staff'}
+              </span>
+              {isSuperAdmin && a.role !== 'superadmin' && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPermTarget(a)}
+                    title="Manage permissions"
+                    className="p-1.5 rounded hover:bg-slate-100 text-ink-muted hover:text-primary-700 transition-colors"
+                  >
+                    <Lock className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => deleteAdmin(a)}
+                    title="Delete admin"
+                    className="p-1.5 rounded hover:bg-red-50 text-ink-muted hover:text-red-600 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showAddForm && (
+        <AddAdminModal onClose={() => setShowAddForm(false)} onAdded={() => { setShowAddForm(false); load(); }} />
+      )}
+      {permTarget && (
+        <PermissionsModal admin={permTarget} onClose={() => setPermTarget(null)} onSaved={() => { setPermTarget(null); load(); }} />
+      )}
+    </div>
+  );
+}
+
+// ─── Add Admin Modal ──────────────────────────────────────────────────────────
+
+function AddAdminModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'staff' as 'staff' | 'superadmin' });
+  const [saving, setSaving] = useState(false);
+  const [showPass, setShowPass] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim()) { toast.error('Name is required'); return; }
+    if (!form.email.trim()) { toast.error('Email is required'); return; }
+    if (form.password.length < 8) { toast.error('Password must be at least 8 characters'); return; }
+    setSaving(true);
+    try {
+      const { error } = await supabase.rpc('create_admin', {
+        admin_name: form.name.trim(),
+        admin_email: form.email.trim(),
+        admin_password: form.password,
+        admin_role: form.role,
+      });
+      if (error) throw error;
+      toast.success(`Admin "${form.name}" added successfully`);
+      onAdded();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line">
+          <h4 className="font-display font-semibold text-ink text-lg">Add New Admin</h4>
+          <button onClick={onClose} className="p-1.5 rounded hover:bg-slate-100 text-ink-muted">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={submit} className="p-6 space-y-4">
+          <div>
+            <label className="label">Full Name</label>
+            <input
+              className="input"
+              placeholder="e.g. Rahul Sharma"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="label">Email Address</label>
+            <input
+              type="email"
+              className="input"
+              placeholder="e.g. rahul@library.com"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="label">Password</label>
+            <div className="relative">
+              <input
+                type={showPass ? 'text' : 'password'}
+                className="input pr-10"
+                placeholder="Min 8 characters"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass(!showPass)}
+                className="absolute right-3 top-3 text-ink-subtle hover:text-ink"
+              >
+                {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="label">Role</label>
+            <select
+              className="input"
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value as 'staff' | 'superadmin' })}
+            >
+              <option value="staff">Staff</option>
+              <option value="superadmin">Super Admin</option>
+            </select>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+            <button type="submit" disabled={saving} className="btn-primary flex-1">
+              {saving ? 'Adding...' : <><Plus className="w-4 h-4" /> Add Admin</>}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Permissions Modal ────────────────────────────────────────────────────────
+
+function PermissionsModal({ admin, onClose, onSaved }: { admin: Admin; onClose: () => void; onSaved: () => void }) {
+  const [perms, setPerms] = useState<AdminPermissions>(admin.permissions ?? {});
+  const [saving, setSaving] = useState(false);
+
+  const toggle = (key: AdminPermissionKey) =>
+    setPerms((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    const { error } = await supabase.rpc('update_admin_permissions', {
+      target_id: admin.id,
+      new_permissions: perms,
+    });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Permissions updated');
+    onSaved();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line">
+          <div>
+            <h4 className="font-display font-semibold text-ink text-lg">Manage Permissions</h4>
+            <p className="text-xs text-ink-muted mt-0.5">{admin.name} &middot; {admin.email}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded hover:bg-slate-100 text-ink-muted">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6 space-y-3">
+          {ALL_ADMIN_PERMISSIONS.map((key) => (
+            <label key={key} className="flex items-center justify-between cursor-pointer">
+              <span className="text-sm font-medium text-ink">{PERMISSION_LABELS[key]}</span>
+              <div
+                onClick={() => toggle(key)}
+                className={`relative w-10 h-5 rounded-full transition-colors ${perms[key] ? 'bg-primary-600' : 'bg-slate-300'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${perms[key] ? 'translate-x-5' : ''}`} />
+              </div>
+            </label>
+          ))}
+        </div>
+        <div className="flex gap-3 px-6 pb-6">
+          <button onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="btn-primary flex-1">
+            {saving ? 'Saving...' : <><Save className="w-4 h-4" /> Save</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Change Password Form ─────────────────────────────────────────────────────
 
 function ChangePasswordForm() {
   const [newPass, setNewPass] = useState('');
@@ -212,9 +479,7 @@ function ChangePasswordForm() {
     if (newPass.length < 8) { toast.error('Password must be at least 8 characters'); return; }
     setSaving(true);
     try {
-      const { data, error } = await supabase.rpc('update_admin_password', {
-        new_password: newPass,
-      });
+      const { data, error } = await supabase.rpc('update_admin_password', { new_password: newPass });
       if (error) throw error;
       if (!data) throw new Error('Failed to update password');
       toast.success('Password updated');
