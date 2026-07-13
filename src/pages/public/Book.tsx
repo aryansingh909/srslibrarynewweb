@@ -10,11 +10,11 @@ import { supabase, type Plan } from '../../lib/supabase';
 import { formatINR, generateBookingId, formatDate } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
 
-const shiftOptions = [
-  { key: 'Morning', icon: Sunrise, time: '6AM – 2PM' },
-  { key: 'Evening', icon: Sunset, time: '2PM – 10PM' },
-  { key: 'Night', icon: Moon, time: '10PM – 6AM' },
-  { key: 'Full Day', icon: Sun, time: '12 Hours' },
+const shiftMeta = [
+  { key: 'Morning', icon: Sunrise },
+  { key: 'Evening', icon: Sunset },
+  { key: 'Night', icon: Moon },
+  { key: 'Full Day', icon: Sun },
 ];
 
 const idTypes = ['Aadhaar', 'Student ID', 'PAN', 'Driving License'];
@@ -99,6 +99,14 @@ export default function Book() {
         amount: shift?.price || 0,
       };
     });
+  };
+
+  const getShiftTime = (shiftName: string): string => {
+    for (const plan of plans) {
+      const shift = plan.shifts.find((s) => s.shiftName === shiftName && s.isActive);
+      if (shift?.shiftTime) return shift.shiftTime;
+    }
+    return '';
   };
 
   const validateStep = (s: number): boolean => {
@@ -298,21 +306,24 @@ export default function Book() {
 
                 <label className="label">Select Shift</label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                  {shiftOptions.map((s) => (
-                    <button
-                      key={s.key}
-                      onClick={() => selectShift(s.key)}
-                      className={`p-4 rounded-xl border-2 text-center transition-all ${
-                        form.shift === s.key
-                          ? 'border-primary-600 bg-primary-50'
-                          : 'border-line hover:border-primary-300'
-                      }`}
-                    >
-                      <s.icon className="w-6 h-6 mx-auto text-primary-700 mb-2" />
-                      <p className="text-sm font-semibold text-ink">{s.key}</p>
-                      <p className="text-xs text-ink-muted">{s.time}</p>
-                    </button>
-                  ))}
+                  {shiftMeta.map((s) => {
+                    const time = getShiftTime(s.key);
+                    return (
+                      <button
+                        key={s.key}
+                        onClick={() => selectShift(s.key)}
+                        className={`p-4 rounded-xl border-2 text-center transition-all ${
+                          form.shift === s.key
+                            ? 'border-primary-600 bg-primary-50'
+                            : 'border-line hover:border-primary-300'
+                        }`}
+                      >
+                        <s.icon className="w-6 h-6 mx-auto text-primary-700 mb-2" />
+                        <p className="text-sm font-semibold text-ink">{s.key}</p>
+                        <p className="text-xs text-ink-muted">{time || '—'}</p>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <label className="label">Select Plan</label>

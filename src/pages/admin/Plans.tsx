@@ -4,12 +4,18 @@ import toast from 'react-hot-toast';
 import { Plus, Trash2, X, Save, Eye, EyeOff } from 'lucide-react';
 import { supabase, type Plan, type PlanShift } from '../../lib/supabase';
 
-const defaultShifts: PlanShift[] = [
-  { shiftName: 'Morning', shiftTime: '7AM - 1PM', price: 0, isActive: true },
-  { shiftName: 'Evening', shiftTime: '1PM - 7PM', price: 0, isActive: true },
-  { shiftName: 'Night', shiftTime: '7PM - 7AM', price: 0, isActive: true },
-  { shiftName: 'Full Day', shiftTime: '7AM - 7PM', price: 0, isActive: true },
-];
+const defaultShiftNames = ['Morning', 'Evening', 'Night', 'Full Day'];
+
+function useDefaultShifts(existingPlans: Plan[]): PlanShift[] {
+  const fromExisting = (name: string): PlanShift => {
+    for (const p of existingPlans) {
+      const found = p.shifts.find((s) => s.shiftName === name);
+      if (found) return { ...found, price: 0 };
+    }
+    return { shiftName: name, shiftTime: '', price: 0, isActive: true };
+  };
+  return defaultShiftNames.map((name) => fromExisting(name));
+}
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -98,7 +104,7 @@ export default function AdminPlans() {
       </div>
 
       <AnimatePresence>
-        {addOpen && <AddPlanModal onClose={() => setAddOpen(false)} onSaved={load} />}
+        {addOpen && <AddPlanModal plans={plans} onClose={() => setAddOpen(false)} onSaved={load} />}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -224,9 +230,10 @@ function PlanEditor({ plan, onSaved, onDelete }: { plan: Plan; onSaved: () => vo
   );
 }
 
-function AddPlanModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function AddPlanModal({ plans, onClose, onSaved }: { plans: Plan[]; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState('');
   const [duration, setDuration] = useState(1);
+  const defaultShifts = useDefaultShifts(plans);
   const [shifts, setShifts] = useState<PlanShift[]>(defaultShifts);
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
