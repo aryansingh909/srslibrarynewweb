@@ -5,10 +5,10 @@ import { Plus, Trash2, X, Save, Eye, EyeOff } from 'lucide-react';
 import { supabase, type Plan, type PlanShift } from '../../lib/supabase';
 
 const defaultShifts: PlanShift[] = [
-  { shiftName: 'Morning', shiftTime: '6AM - 2PM', price: 0, isActive: true },
-  { shiftName: 'Evening', shiftTime: '2PM - 10PM', price: 0, isActive: true },
-  { shiftName: 'Night', shiftTime: '10PM - 6AM', price: 0, isActive: true },
-  { shiftName: 'Full Day', shiftTime: '24 Hours', price: 0, isActive: true },
+  { shiftName: 'Morning', shiftTime: '7AM - 1PM', price: 0, isActive: true },
+  { shiftName: 'Evening', shiftTime: '1PM - 7PM', price: 0, isActive: true },
+  { shiftName: 'Night', shiftTime: '7PM - 7AM', price: 0, isActive: true },
+  { shiftName: 'Full Day', shiftTime: '7AM - 7PM', price: 0, isActive: true },
 ];
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
@@ -189,7 +189,14 @@ function PlanEditor({ plan, onSaved, onDelete }: { plan: Plan; onSaved: () => vo
               {shifts.map((s, i) => (
                 <tr key={s.shiftName} className="border-t border-line">
                   <td className="px-4 py-3 font-medium text-ink">{s.shiftName}</td>
-                  <td className="px-4 py-3 text-ink-muted">{s.shiftTime}</td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="text"
+                      className="input py-1.5 max-w-40"
+                      value={s.shiftTime}
+                      onChange={(e) => updateShift(i, "shiftTime", e.target.value)}
+                    />
+                  </td>
                   <td className="px-4 py-3">
                     <input
                       type="number"
@@ -268,7 +275,20 @@ function AddPlanModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
               {shifts.map((s, i) => (
                 <div key={s.shiftName} className="flex items-center gap-3">
                   <span className="text-sm font-medium text-ink w-20 shrink-0">{s.shiftName}</span>
-                  <span className="text-xs text-ink-muted w-24 shrink-0">{s.shiftTime}</span>
+                  <input
+                    type="text"
+                    className="input py-1.5 w-36"
+                    value={s.shiftTime}
+                    onChange={(e) =>
+                      setShifts((prev) =>
+                        prev.map((shift, index) =>
+                          index === i
+                            ? { ...shift, shiftTime: e.target.value }
+                            : shift
+                        )
+                      )
+                    }
+                  />
                   <input type="number" className="input py-1.5" value={s.price} onChange={(e) => updateShift(i, Number(e.target.value))} />
                 </div>
               ))}

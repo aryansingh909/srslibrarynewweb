@@ -100,9 +100,16 @@ export default function Footer() {
                 </a>
               )}
               {settings?.whatsapp_number && (
-                <a href={`https://wa.me/${settings.whatsapp_number}`} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-lg bg-white/5 hover:bg-success flex items-center justify-center transition-colors" aria-label="WhatsApp">
-                  <MessageCircle className="w-5 h-5" />
-                </a>
+                <a
+                href={`https://wa.me/${settings.whatsapp_number}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 px-4 h-10 rounded-lg bg-white/5 hover:bg-success transition-colors"
+                aria-label="WhatsApp"
+              >
+                <MessageCircle className="w-5 h-5 flex-shrink-0" />
+                <span className="whitespace-nowrap text-sm">Connect on WhatsApp</span>
+              </a>
               )}
             </div>
           </div>
