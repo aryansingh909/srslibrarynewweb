@@ -1,8 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Upload, Trash2, X, GripVertical, ImagePlus, ImageOff } from 'lucide-react';
 import { supabase, type GalleryImage } from '../../lib/supabase';
+
+type QueuedFile = {
+  file: File;
+  previewUrl: string;
+  status: 'pending' | 'uploading' | 'done' | 'error';
+  publicUrl?: string;
+  errorMsg?: string;
+};
 
 export default function AdminGallery() {
   const [images, setImages] = useState<GalleryImage[]>([]);
@@ -35,6 +43,12 @@ export default function AdminGallery() {
   };
 
   const deleteImage = async (img: GalleryImage) => {
+    try {
+      const url = new URL(img.url);
+      const parts = url.pathname.split('/gallery/');
+      const path = parts[1] || '';
+      if (path) await supabase.storage.from('gallery').remove([path]);
+    } catch { /* not a storage URL */ }
     const { error } = await supabase.from('gallery_images').delete().eq('id', img.id);
     if (error) toast.error(error.message);
     else { toast.success('Image deleted'); setConfirmDelete(null); load(); }
@@ -114,42 +128,89 @@ export default function AdminGallery() {
 }
 
 function AddImagesModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [urls, setUrls] = useState<string[]>([]);
+  const [queued, setQueued] = useState<QueuedFile[]>([]);
   const [caption, setCaption] = useState('');
   const [saving, setSaving] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const addUrl = () => {
-    setUrls([...urls, '']);
+  const addFiles = useCallback((fileList: FileList | File[]) => {
+    const arr = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
+    if (!arr.length) { toast.error('Please select image files only'); return; }
+    const next: QueuedFile[] = arr.map((file) => ({
+      file,
+      previewUrl: URL.createObjectURL(file),
+      status: 'pending',
+    }));
+    setQueued((q) => [...q, ...next]);
+  }, []);
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    addFiles(e.dataTransfer.files);
   };
 
-  const updateUrl = (i: number, val: string) => {
-    setUrls(urls.map((u, idx) => idx === i ? val : u));
+  const onFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) addFiles(e.target.files);
+    e.target.value = '';
   };
 
-  const removeUrl = (i: number) => {
-    setUrls(urls.filter((_, idx) => idx !== i));
+  const removeQueued = (i: number) => {
+    setQueued((q) => {
+      URL.revokeObjectURL(q[i].previewUrl);
+      return q.filter((_, idx) => idx !== i);
+    });
   };
 
   const save = async () => {
-    const valid = urls.filter((u) => u.trim());
-    if (!valid.length) { toast.error('Add at least one image URL'); return; }
+    const pending = queued.filter((q) => q.status !== 'done');
+    if (!pending.length) { toast.error('Add at least one image'); return; }
     setSaving(true);
+    let successCount = 0;
     try {
-      const payload = valid.map((url, i) => ({
-        url: url.trim(),
-        caption: caption.trim() || null,
-        sort_order: 999 + i,
-      }));
-      const { error } = await supabase.from('gallery_images').insert(payload);
-      if (error) throw error;
-      toast.success(`${valid.length} image${valid.length > 1 ? 's' : ''} added`);
-      onSaved();
+      const { count } = await supabase.from('gallery_images').select('*', { count: 'exact', head: true });
+      let sortOrder = (count ?? 0) + 1;
+
+      for (const item of pending) {
+        const idx = queued.findIndex((q) => q === item);
+        setQueued((q) => q.map((it, i) => i === idx ? { ...it, status: 'uploading' } : it));
+        const ext = item.file.name.split('.').pop()?.toLowerCase() || 'jpg';
+        const fileName = `${crypto.randomUUID()}.${ext}`;
+        const path = fileName;
+        const { error: upErr } = await supabase.storage.from('gallery').upload(path, item.file, { upsert: false });
+        if (upErr) {
+          setQueued((q) => q.map((it, i) => i === idx ? { ...it, status: 'error', errorMsg: upErr.message } : it));
+          continue;
+        }
+        const { data: pubData } = supabase.storage.from('gallery').getPublicUrl(path);
+        const publicUrl = pubData.publicUrl;
+        const { error: dbErr } = await supabase.from('gallery_images').insert({
+          url: publicUrl,
+          caption: caption.trim() || null,
+          sort_order: sortOrder++,
+        });
+        if (dbErr) {
+          setQueued((q) => q.map((it, i) => i === idx ? { ...it, status: 'error', errorMsg: dbErr.message } : it));
+          continue;
+        }
+        setQueued((q) => q.map((it, i) => i === idx ? { ...it, status: 'done', publicUrl } : it));
+        successCount++;
+      }
+      if (successCount > 0) {
+        toast.success(`${successCount} image${successCount > 1 ? 's' : ''} added`);
+        onSaved();
+      } else {
+        toast.error('Failed to upload images');
+        setSaving(false);
+      }
     } catch (err) {
       toast.error((err as Error).message);
-    } finally {
       setSaving(false);
     }
   };
+
+  const allDone = queued.length > 0 && queued.every((q) => q.status === 'done');
 
   return (
     <div className="fixed inset-0 z-50 bg-navy-950/60 flex items-center justify-center p-4" onClick={onClose}>
@@ -158,32 +219,53 @@ function AddImagesModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
           <h3 className="font-display font-semibold text-lg text-ink">Add Gallery Images</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button>
         </div>
-        <div className="space-y-4">
-          <div>
-            <label className="label">Image URLs</label>
-            <p className="text-xs text-ink-muted mb-2">Paste direct image URLs (e.g. from Pexels, Unsplash, or your CDN).</p>
-            <div className="space-y-2">
-              {urls.map((u, i) => (
-                <div key={i} className="flex gap-2">
-                  <input className="input" placeholder="https://images.pexels.com/..." value={u} onChange={(e) => updateUrl(i, e.target.value)} />
-                  <button onClick={() => removeUrl(i)} className="btn-ghost px-3"><X className="w-4 h-4" /></button>
-                </div>
-              ))}
-            </div>
-            <button onClick={addUrl} className="btn-secondary mt-2 w-full"><Upload className="w-4 h-4" /> Add URL field</button>
-          </div>
-          <div>
-            <label className="label">Caption (optional, applies to all)</label>
-            <input className="input" value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="e.g. Main study hall" />
-          </div>
-          {urls.filter((u) => u.trim()).map((u, i) => (
-            <img key={i} src={u} alt="preview" className="w-full h-32 object-cover rounded-lg" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-          ))}
+
+        <div
+          onDrop={onDrop}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onClick={() => inputRef.current?.click()}
+          className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors mb-4 ${
+            dragging ? 'border-primary-600 bg-primary-50' : 'border-line hover:border-primary-300 hover:bg-slate-50'
+          }`}
+        >
+          <input ref={inputRef} type="file" accept="image/*" multiple onChange={onFileInput} className="hidden" />
+          <Upload className={`w-10 h-10 mx-auto mb-3 ${dragging ? 'text-primary-600' : 'text-ink-subtle'}`} />
+          <p className="text-sm font-semibold text-ink">{dragging ? 'Drop images here' : 'Drag & drop images here'}</p>
+          <p className="text-xs text-ink-muted mt-1">or click to browse · PNG, JPG, WEBP</p>
         </div>
+
+        {queued.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {queued.map((q, i) => (
+              <div key={i} className="flex items-center gap-3 p-2 rounded-lg border border-line">
+                <img src={q.previewUrl} alt="preview" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-ink truncate">{q.file.name}</p>
+                  <p className="text-xs text-ink-muted">{(q.file.size / 1024).toFixed(0)} KB</p>
+                  {q.status === 'uploading' && <p className="text-xs text-primary-700 mt-0.5">Uploading...</p>}
+                  {q.status === 'done' && <p className="text-xs text-success mt-0.5">Uploaded</p>}
+                  {q.status === 'error' && <p className="text-xs text-error mt-0.5">{q.errorMsg || 'Failed'}</p>}
+                </div>
+                {q.status === 'pending' && (
+                  <button onClick={() => removeQueued(i)} className="p-1.5 rounded-lg hover:bg-slate-100 text-ink-muted hover:text-error">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mb-4">
+          <label className="label">Caption (optional, applies to all)</label>
+          <input className="input" value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="e.g. Main study hall" />
+        </div>
+
         <div className="flex gap-2 mt-6">
           <button onClick={onClose} className="btn-ghost">Cancel</button>
-          <button onClick={save} disabled={saving} className="btn-primary ml-auto">
-            {saving ? 'Adding...' : <><Upload className="w-4 h-4" /> Add Images</>}
+          <button onClick={save} disabled={saving || allDone || queued.length === 0} className="btn-primary ml-auto">
+            {saving ? 'Uploading...' : <><Upload className="w-4 h-4" /> Upload {queued.length > 0 ? `(${queued.filter((q) => q.status !== 'done').length})` : ''}</>}
           </button>
         </div>
       </motion.div>
