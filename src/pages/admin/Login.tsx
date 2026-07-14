@@ -6,7 +6,7 @@ import { Lock, Mail, Shield, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { useAdmin } from '../../contexts/AdminContext';
 
 export default function AdminLogin() {
-  const [email, setEmail] = useState('admin@srsdigitalibrary.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const { login, loading } = useAdmin();
@@ -44,7 +44,7 @@ export default function AdminLogin() {
               <label className="label">Email Address</label>
               <div className="relative">
                 <Mail className="w-4 h-4 absolute left-3 top-3 text-ink-subtle" />
-                <input type="email" required className="input pl-10" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <input type="email" required className="input pl-10" value={email} onChange={(e) => setEmail(e.target.value)}  placeholder="Enter email" />
               </div>
             </div>
             <div>
@@ -62,9 +62,9 @@ export default function AdminLogin() {
             </button>
           </form>
 
-          <div className="mt-6 p-3 rounded-xl bg-primary-50 text-xs text-ink-muted text-center">
+          {/* <div className="mt-6 p-3 rounded-xl bg-primary-50 text-xs text-ink-muted text-center">
             Default: <span className="font-mono font-semibold">admin@srsdigitalibrary.com</span> / <span className="font-mono font-semibold">SRS@Admin123</span>
-          </div>
+          </div> */}
         </div>
       </motion.div>
     </div>
