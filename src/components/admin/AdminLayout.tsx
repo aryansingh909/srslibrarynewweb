@@ -5,22 +5,23 @@ import {
   Image, Settings, LogOut, Menu, X, ChevronLeft, ChevronRight, Armchair,  MessageSquare,
 } from 'lucide-react';
 import { useAdmin } from '../../contexts/AdminContext';
+import type { AdminPermissionKey } from '../../lib/supabase';
 
-const nav = [
-  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/admin/members', label: 'Members', icon: Users },
-  { to: '/admin/bookings', label: 'Bookings', icon: CalendarCheck },
-  { to: '/admin/fees', label: 'Fee Tracking', icon: Wallet },
-  { to: '/admin/inquiries', label: 'Enquiries', icon: MessageSquare },
-  { to: '/admin/announcements', label: 'Announcements', icon: Megaphone },
-  { to: '/admin/plans', label: 'Plans & Pricing', icon: ClipboardList },
-  { to: '/admin/seats', label: 'Seat Management', icon: Armchair },
-  { to: '/admin/gallery', label: 'Gallery', icon: Image },
-  { to: '/admin/settings', label: 'Settings', icon: Settings },
+const nav: { to: string; label: string; icon: typeof LayoutDashboard; perm: AdminPermissionKey }[] = [
+  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: 'dashboard' },
+  { to: '/admin/members', label: 'Members', icon: Users, perm: 'members' },
+  { to: '/admin/bookings', label: 'Bookings', icon: CalendarCheck, perm: 'bookings' },
+  { to: '/admin/fees', label: 'Fee Tracking', icon: Wallet, perm: 'fees' },
+  { to: '/admin/inquiries', label: 'Enquiries', icon: MessageSquare, perm: 'inquiries' },
+  { to: '/admin/announcements', label: 'Announcements', icon: Megaphone, perm: 'announcements' },
+  { to: '/admin/plans', label: 'Plans & Pricing', icon: ClipboardList, perm: 'plans' },
+  { to: '/admin/seats', label: 'Seat Management', icon: Armchair, perm: 'seats' },
+  { to: '/admin/gallery', label: 'Gallery', icon: Image, perm: 'gallery' },
+  { to: '/admin/settings', label: 'Settings', icon: Settings, perm: 'settings' },
 ];
 
 export default function AdminLayout() {
-  const { admin, logout } = useAdmin();
+  const { admin, logout, hasPermission } = useAdmin();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -46,7 +47,7 @@ export default function AdminLayout() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {nav.map((n) => (
+        {nav.filter((n) => hasPermission(n.perm)).map((n) => (
           <NavLink
             key={n.to}
             to={n.to}
