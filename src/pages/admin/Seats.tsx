@@ -25,7 +25,7 @@ type SeatOccupancy = {
   bookings: Record<string, Member>; // shift -> member
 };
 
-type Filter = 'all' | 'occupied' | 'available';
+type Filter = 'all' | 'occupied' | 'available' | 'expired';
 
 export default function Seats() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -40,7 +40,6 @@ export default function Seats() {
     const { data, error } = await supabase
       .from('members')
       .select('*')
-      .eq('membership_status', 'active')
       .not('seat_number', 'is', null)
       .not('current_shift', 'is', null);
     if (error) toast.error(error.message);
@@ -72,6 +71,7 @@ export default function Seats() {
   const filteredSeats = useMemo(() => {
     if (filter === 'occupied') return seats.filter((s) => !isAvailable(s));
     if (filter === 'available') return seats.filter(isAvailable);
+    if (filter === 'expired') return seats.filter((s) => Object.values(s.bookings).some((m) => m.membership_status === 'expired'));
     return seats;
   }, [seats, filter]);
 
@@ -80,7 +80,8 @@ export default function Seats() {
     occupied: seats.filter((s) => !isAvailable(s)).length,
     available: seats.filter(isAvailable).length,
     fullDay: seats.filter(hasFullDay).length,
-  }), [seats]);
+    expired: members.filter((m) => m.membership_status === 'expired').length,
+  }), [seats, members]);
 
   const handleShiftClick = (seat: SeatOccupancy, shift: string) => {
     const member = seat.bookings[shift];
@@ -122,12 +123,13 @@ export default function Seats() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: 'Total Seats', value: stats.total, color: 'text-primary-700', bg: 'bg-primary-50 border-primary-200' },
           { label: 'Occupied', value: stats.occupied, color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
           { label: 'Available', value: stats.available, color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
           { label: 'Full Day', value: stats.fullDay, color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
+          { label: 'Expired', value: stats.expired, color: 'text-error', bg: 'bg-error-light border-error-light' },
         ].map((s) => (
           <div key={s.label} className={`card p-4 border ${s.bg}`}>
             <p className="text-xs font-medium text-ink-muted uppercase tracking-wide">{s.label}</p>
@@ -138,7 +140,7 @@ export default function Seats() {
 
       {/* Filters */}
       <div className="flex gap-2">
-        {(['all', 'occupied', 'available'] as Filter[]).map((f) => (
+        {(['all', 'occupied', 'available', 'expired'] as Filter[]).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -264,7 +266,12 @@ if (!hasMorning && !hasEvening) {
               <div className="flex-1 text-left min-w-0">
                 <div className="font-semibold">{meta.label}</div>
                 {member ? (
-                  <div className="truncate text-[10px] opacity-80">{member.full_name}</div>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <div className="truncate text-[10px] opacity-80">{member.full_name}</div>
+                    {member.membership_status === 'expired' && (
+                      <span className="shrink-0 px-1 py-0.5 rounded text-[8px] font-bold bg-error-light text-error leading-none">EXP</span>
+                    )}
+                  </div>
                 ) : (
                   <div className="text-[10px] opacity-60">Available</div>
                 )}

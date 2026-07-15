@@ -6,7 +6,7 @@ type Props = {
   member: Member;
   plans: Plan[];
   onClose: () => void;
-  onRenew: (planId: string, shiftName: string, startDate: string) => void;
+  onRenew: (planId: string, shiftName: string, startDate: string, paymentMode: 'cash' | 'upi', paymentStatus: 'paid' | 'unpaid' | 'partial', paidAmount: number) => void;
 };
 
 export default function RenewMembershipModal({ member, plans, onClose, onRenew }: Props) {
@@ -15,10 +15,17 @@ export default function RenewMembershipModal({ member, plans, onClose, onRenew }
   const [planId, setPlanId] = useState(member.current_plan_id || activePlans[0]?.id || '');
   const [shiftName, setShiftName] = useState(member.current_shift || '');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentMode, setPaymentMode] = useState<'cash' | 'upi'>('cash');
+  const [paymentStatus, setPaymentStatus] = useState<'paid' | 'unpaid' | 'partial'>('paid');
+  const [paidAmount, setPaidAmount] = useState<number>(0);
 
   const selectedPlan = activePlans.find((p) => p.id === planId);
   const shifts = selectedPlan?.shifts.filter((s) => s.isActive) ?? [];
   const selectedShift = shifts.find((s) => s.shiftName === shiftName);
+  const amount = selectedShift?.price ?? 0;
+
+  const effectivePaid = paymentStatus === 'paid' ? amount : paymentStatus === 'partial' ? paidAmount : 0;
+  const dueAmount = Math.max(0, amount - effectivePaid);
 
   const expiryDate = useMemo(() => {
     if (!selectedPlan || !startDate) return '';
@@ -30,7 +37,7 @@ export default function RenewMembershipModal({ member, plans, onClose, onRenew }
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!planId || !shiftName || !startDate) return;
-    onRenew(planId, shiftName, startDate);
+    onRenew(planId, shiftName, startDate, paymentMode, paymentStatus, effectivePaid);
   };
 
   return (
@@ -75,6 +82,43 @@ export default function RenewMembershipModal({ member, plans, onClose, onRenew }
           {expiryDate && (
             <div className="bg-success-light/30 rounded-xl p-3 text-sm text-neutral-700">
               New expiry date: <span className="font-semibold text-neutral-900">{expiryDate}</span>
+            </div>
+          )}
+
+          {amount > 0 && (
+            <div className="border-t border-neutral-100 pt-4 space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Fee Amount</label>
+                <div className="input bg-neutral-50 font-semibold text-neutral-900">₹{amount}</div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Payment Mode</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setPaymentMode('cash')} className={`p-2.5 rounded-xl border-2 text-sm font-semibold ${paymentMode === 'cash' ? 'border-primary-600 bg-primary-50 text-primary-800' : 'border-line text-ink-muted'}`}>Cash</button>
+                  <button type="button" onClick={() => setPaymentMode('upi')} className={`p-2.5 rounded-xl border-2 text-sm font-semibold ${paymentMode === 'upi' ? 'border-primary-600 bg-primary-50 text-primary-800' : 'border-line text-ink-muted'}`}>UPI</button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Payment Status</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button type="button" onClick={() => setPaymentStatus('paid')} className={`p-2.5 rounded-xl border-2 text-sm font-semibold ${paymentStatus === 'paid' ? 'border-success bg-success-light text-success' : 'border-line text-ink-muted'}`}>Paid</button>
+                  <button type="button" onClick={() => setPaymentStatus('partial')} className={`p-2.5 rounded-xl border-2 text-sm font-semibold ${paymentStatus === 'partial' ? 'border-warning bg-warning-light text-warning' : 'border-line text-ink-muted'}`}>Partial</button>
+                  <button type="button" onClick={() => setPaymentStatus('unpaid')} className={`p-2.5 rounded-xl border-2 text-sm font-semibold ${paymentStatus === 'unpaid' ? 'border-error bg-error-light text-error' : 'border-line text-ink-muted'}`}>Unpaid</button>
+                </div>
+              </div>
+              {paymentStatus === 'partial' && (
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Amount Paid (₹)</label>
+                  <input type="number" min={0} max={amount} className="input" value={paidAmount} onChange={(e) => setPaidAmount(Number(e.target.value))} />
+                  <p className="text-xs text-neutral-500 mt-1">Due: ₹{dueAmount}</p>
+                </div>
+              )}
+              {paymentStatus !== 'partial' && (
+                <div className="text-sm text-neutral-600 flex justify-between bg-neutral-50 rounded-lg p-2.5">
+                  <span>Paid: <span className="font-semibold text-neutral-900">₹{effectivePaid}</span></span>
+                  <span>Due: <span className="font-semibold text-error">₹{dueAmount}</span></span>
+                </div>
+              )}
             </div>
           )}
 

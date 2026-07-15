@@ -96,24 +96,60 @@ export default function AdminMembers() {
     else { toast.success(`Member ${status}`); load(); setViewMember(null); }
   };
 
-  const renewMembership = async (member: Member, planId: string, shiftName: string, startDate: string) => {
+  const renewMembership = async (
+    member: Member, planId: string, shiftName: string, startDate: string,
+    paymentMode: 'cash' | 'upi', paymentStatus: 'paid' | 'unpaid' | 'partial', paidAmount: number,
+  ) => {
     const plan = plans.find((p) => p.id === planId);
     if (!plan) { toast.error('Plan not found'); return; }
     const shift = plan.shifts.find((s) => s.shiftName === shiftName);
+    const amount = Number(shift?.price) || 0;
+    const safePaid = Number(paidAmount) || 0;
+    const dueAmount = Math.max(0, amount - safePaid);
     const start = new Date(startDate);
     const expiry = new Date(start);
     expiry.setMonth(expiry.getMonth() + plan.duration_months);
+    const expiryStr = expiry.toISOString().split('T')[0];
+
     const { error } = await supabase.from('members').update({
       current_plan_id: plan.id,
       current_plan_name: plan.name,
       current_shift: shiftName,
       current_shift_time: shift?.shiftTime || '',
       current_start_date: startDate,
-      current_expiry_date: expiry.toISOString().split('T')[0],
+      current_expiry_date: expiryStr,
       membership_status: 'active',
     }).eq('id', member.id);
-    if (error) toast.error(error.message);
-    else { toast.success(`${member.full_name}'s membership renewed`); load(); setRenewTarget(null); setViewMember(null); }
+
+    if (error) { toast.error(error.message); return; }
+
+    const bookingId = `REN-${Date.now().toString(36).toUpperCase()}`;
+    const { error: bookingError } = await supabase.from('bookings').insert({
+      booking_id: bookingId,
+      member_id: member.id,
+      user_id: member.user_id,
+      member_name: member.full_name,
+      member_phone: member.phone,
+      member_email: member.email,
+      plan_id: plan.id,
+      plan_name: plan.name,
+      shift: shiftName,
+      shift_time: shift?.shiftTime || '',
+      amount,
+      start_date: startDate,
+      expiry_date: expiryStr,
+      seat_number: member.seat_number,
+      status: 'confirmed',
+      payment_mode: paymentMode,
+      payment_status: paymentStatus,
+      paid_amount: safePaid,
+      due_amount: dueAmount,
+      admin_notes: 'Membership renewal',
+      address: member.address,
+    });
+
+    if (bookingError) toast.error(`Fee record error: ${bookingError.message}`);
+    else { toast.success(`${member.full_name}'s membership renewed & fee recorded`); load(); setRenewTarget(null); setViewMember(null); }
   };
 
   const deleteMember = async (m: Member) => {
@@ -278,7 +314,7 @@ export default function AdminMembers() {
             member={renewTarget}
             plans={plans}
             onClose={() => setRenewTarget(null)}
-            onRenew={(planId, shiftName, startDate) => renewMembership(renewTarget, planId, shiftName, startDate)}
+            onRenew={(planId, shiftName, startDate, paymentMode, paymentStatus, paidAmount) => renewMembership(renewTarget, planId, shiftName, startDate, paymentMode, paymentStatus, paidAmount)}
           />
         )}
 
