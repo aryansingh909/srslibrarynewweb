@@ -27,6 +27,10 @@ type SeatOccupancy = {
 
 type Filter = 'all' | 'occupied' | 'available' | 'expired';
 
+const isMemberExpired = (m: Member) =>
+  m.membership_status === 'expired' ||
+  (m.current_expiry_date != null && daysUntil(m.current_expiry_date) <= 0);
+
 export default function Seats() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,10 +72,12 @@ export default function Seats() {
   const isPartiallyOccupied = (s: SeatOccupancy) => !hasFullDay(s) && Object.keys(s.bookings).length > 0;
   const isAvailable = (s: SeatOccupancy) => Object.keys(s.bookings).length === 0;
 
+  const seatHasExpired = (s: SeatOccupancy) => Object.values(s.bookings).some(isMemberExpired);
+
   const filteredSeats = useMemo(() => {
     if (filter === 'occupied') return seats.filter((s) => !isAvailable(s));
     if (filter === 'available') return seats.filter(isAvailable);
-    if (filter === 'expired') return seats.filter((s) => Object.values(s.bookings).some((m) => m.membership_status === 'expired'));
+    if (filter === 'expired') return seats.filter(seatHasExpired);
     return seats;
   }, [seats, filter]);
 
@@ -80,7 +86,7 @@ export default function Seats() {
     occupied: seats.filter((s) => !isAvailable(s)).length,
     available: seats.filter(isAvailable).length,
     fullDay: seats.filter(hasFullDay).length,
-    expired: members.filter((m) => m.membership_status === 'expired').length,
+    expired: members.filter(isMemberExpired).length,
   }), [seats, members]);
 
   const handleShiftClick = (seat: SeatOccupancy, shift: string) => {
@@ -102,6 +108,7 @@ export default function Seats() {
   };
 
   const statusDot = (s: SeatOccupancy) => {
+    if (seatHasExpired(s)) return 'bg-red-500';
     if (hasFullDay(s)) return 'bg-red-500';
     if (isPartiallyOccupied(s)) return 'bg-amber-400';
     return 'bg-emerald-400';
@@ -221,6 +228,7 @@ function SeatCard({
   const hasEvening = !!seat.bookings['Evening'];
   // const hasNight = !!seat.bookings['Night'];
   const fullDayBooked = !!seat.bookings['Full Day'];
+  const hasExpired = Object.values(seat.bookings).some(isMemberExpired);
 
 let shiftsToShow: string[] = [];
 
@@ -239,7 +247,7 @@ if (!hasMorning && !hasEvening) {
 }
 
   return (
-    <div className="card p-3 hover:shadow-md transition-shadow">
+    <div className={`card p-3 hover:shadow-md transition-shadow ${hasExpired ? 'ring-2 ring-error border-error' : ''}`}>
       {/* Card header */}
       <div className="flex items-center justify-between mb-2.5">
         <span className="font-display font-bold text-base text-ink">Seat {seat.seatNumber}</span>
@@ -258,7 +266,7 @@ if (!hasMorning && !hasEvening) {
               disabled={!member}
               className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
                 member
-                  ? `${meta.bg} ${meta.color} hover:opacity-90 cursor-pointer shadow-sm`
+                  ? `${meta.bg} ${meta.color} hover:opacity-90 cursor-pointer shadow-sm ${isMemberExpired(member) ? 'ring-1 ring-error border-error' : ''}`
                   : 'bg-slate-50 border-slate-200 text-ink-subtle cursor-default'
               }`}
             >
@@ -268,7 +276,7 @@ if (!hasMorning && !hasEvening) {
                 {member ? (
                   <div className="flex items-center gap-1 min-w-0">
                     <div className="truncate text-[10px] opacity-80">{member.full_name}</div>
-                    {member.membership_status === 'expired' && (
+                    {isMemberExpired(member) && (
                       <span className="shrink-0 px-1 py-0.5 rounded text-[8px] font-bold bg-error-light text-error leading-none">EXP</span>
                     )}
                   </div>

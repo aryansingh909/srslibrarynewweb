@@ -399,6 +399,14 @@ function MemberForm({ member, plans, onClose, onSaved }: { member: Member | null
       const start = new Date(form.current_start_date);
       const expiry = new Date(start);
       if (plan) expiry.setMonth(expiry.getMonth() + plan.duration_months);
+      const expiryStr = expiry.toISOString().split('T')[0];
+
+      // Auto-derive status from expiry unless admin explicitly set pending/suspended
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      let resolvedStatus = form.membership_status;
+      if (resolvedStatus !== 'pending' && resolvedStatus !== 'suspended') {
+        resolvedStatus = expiry < today ? 'expired' : 'active';
+      }
 
       const payload = {
         full_name: form.full_name,
@@ -412,9 +420,9 @@ function MemberForm({ member, plans, onClose, onSaved }: { member: Member | null
         current_shift: form.current_shift,
         current_shift_time: shift?.shiftTime || '',
         current_start_date: form.current_start_date,
-        current_expiry_date: expiry.toISOString().split('T')[0],
+        current_expiry_date: expiryStr,
         seat_number: form.seat_number || null,
-        membership_status: form.membership_status,
+        membership_status: resolvedStatus,
       };
 
       if (member) {
