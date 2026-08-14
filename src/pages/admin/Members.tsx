@@ -2,10 +2,11 @@ import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
-  UserPlus, Search, Download, Eye, Pencil, Ban, Trash2, X, Filter, KeyRound,
+  UserPlus, Search, Download, Eye, Pencil, Ban, Trash2, X, Filter, KeyRound, RefreshCw,
 } from 'lucide-react';
 import { supabase, type Member, type Plan } from '../../lib/supabase';
 import { formatDate, statusColor, downloadCSV } from '../../lib/utils';
+import RenewMembershipModal from '../../components/admin/RenewMembershipModal';
 
 export default function AdminMembers() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -22,6 +23,7 @@ export default function AdminMembers() {
   const [resetTarget, setResetTarget] = useState<Member | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [resetting, setResetting] = useState(false);
+  const [renewTarget, setRenewTarget] = useState<Member | null>(null);
 
   const submitResetPassword = async () => {
     if (!resetTarget) return;
@@ -92,6 +94,26 @@ export default function AdminMembers() {
     const { error } = await supabase.from('members').update({ membership_status: status }).eq('id', m.id);
     if (error) toast.error(error.message);
     else { toast.success(`Member ${status}`); load(); setViewMember(null); }
+  };
+
+  const renewMembership = async (member: Member, planId: string, shiftName: string, startDate: string) => {
+    const plan = plans.find((p) => p.id === planId);
+    if (!plan) { toast.error('Plan not found'); return; }
+    const shift = plan.shifts.find((s) => s.shiftName === shiftName);
+    const start = new Date(startDate);
+    const expiry = new Date(start);
+    expiry.setMonth(expiry.getMonth() + plan.duration_months);
+    const { error } = await supabase.from('members').update({
+      current_plan_id: plan.id,
+      current_plan_name: plan.name,
+      current_shift: shiftName,
+      current_shift_time: shift?.shiftTime || '',
+      current_start_date: startDate,
+      current_expiry_date: expiry.toISOString().split('T')[0],
+      membership_status: 'active',
+    }).eq('id', member.id);
+    if (error) toast.error(error.message);
+    else { toast.success(`${member.full_name}'s membership renewed`); load(); setRenewTarget(null); setViewMember(null); }
   };
 
   const deleteMember = async (m: Member) => {
@@ -183,6 +205,7 @@ export default function AdminMembers() {
                       <div className="flex gap-1">
                         <button onClick={() => setViewMember(m)} className="p-1.5 rounded-lg hover:bg-primary-50 text-primary-700" aria-label="View"><Eye className="w-4 h-4" /></button>
                         <button onClick={() => setEditMember(m)} className="p-1.5 rounded-lg hover:bg-primary-50 text-primary-700" aria-label="Edit"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => setRenewTarget(m)} className="p-1.5 rounded-lg hover:bg-success-light text-success" aria-label="Renew Membership" title="Renew Membership"><RefreshCw className="w-4 h-4" /></button>
                         <button onClick={() => setResetTarget(m)} className="p-1.5 rounded-lg hover:bg-primary-50 text-primary-700" aria-label="Set Password"><KeyRound className="w-4 h-4" /></button>
                         <button onClick={() => updateStatus(m, m.membership_status === 'suspended' ? 'active' : 'suspended')} className="p-1.5 rounded-lg hover:bg-warning-light text-warning" aria-label="Suspend"><Ban className="w-4 h-4" /></button>
                         <button onClick={() => setConfirmDelete(m)} className="p-1.5 rounded-lg hover:bg-error-light text-error" aria-label="Delete"><Trash2 className="w-4 h-4" /></button>
@@ -215,6 +238,7 @@ export default function AdminMembers() {
               </div>
               <Field label="Address" value={viewMember.address || '—'} />
               <div className="flex gap-2 pt-3 border-t border-line">
+                <button onClick={() => setRenewTarget(viewMember)} className="btn-secondary"><RefreshCw className="w-4 h-4" /> Renew Membership</button>
                 <button onClick={() => setResetTarget(viewMember)} className="btn-secondary"><KeyRound className="w-4 h-4" /> Set Password</button>
                 <button onClick={() => updateStatus(viewMember, 'suspended')} className="btn-secondary"><Ban className="w-4 h-4" /> Suspend</button>
                 <button onClick={() => { setEditMember(viewMember); setViewMember(null); }} className="btn-secondary"><Pencil className="w-4 h-4" /> Edit</button>
@@ -247,6 +271,15 @@ export default function AdminMembers() {
               <button onClick={() => deleteMember(confirmDelete)} className="btn-danger"><Trash2 className="w-4 h-4" /> Delete</button>
             </div>
           </Modal>
+        )}
+
+        {renewTarget && (
+          <RenewMembershipModal
+            member={renewTarget}
+            plans={plans}
+            onClose={() => setRenewTarget(null)}
+            onRenew={(planId, shiftName, startDate) => renewMembership(renewTarget, planId, shiftName, startDate)}
+          />
         )}
 
         {resetTarget && (
